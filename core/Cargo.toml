@@ -18,6 +18,7 @@ v8_use_custom_libcxx = ["v8/use_custom_libcxx"]
 
 [dependencies]
 anyhow = "1.0.57"
+signal-hook = "0.3.14"
 bytes = "1"
 deno_ops = { path = "../ops", version = "0.34.0" }
 futures = "0.3.21"
@@ -34,7 +35,8 @@ serde_json = { version = "1.0.79", features = ["preserve_order"] }
 serde_v8 = { version = "0.67.0", path = "../serde_v8" }
 sourcemap = "6.1"
 url = { version = "2.3.1", features = ["serde", "expose_internals"] }
-v8 = { version = "0.54.0", default-features = false }
+unsafe-send-sync = "0.1.0"
+v8 = { version = "0.54.0", default-features = false, path = "/home/lukas/projects/rusty_v8" }
 
 [[example]]
 name = "http_bench_json_ops"

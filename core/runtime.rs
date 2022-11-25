@@ -40,11 +40,14 @@ use std::collections::VecDeque;
 use std::ffi::c_void;
 use std::option::Option;
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::Once;
 use std::task::Context;
 use std::task::Poll;
+use std::thread;
+use unsafe_send_sync::UnsafeSend;
 use v8::OwnedIsolate;
 
 type PendingOpFuture = OpCall<(PromiseId, OpId, OpResult)>;
@@ -1448,6 +1451,30 @@ impl JsRuntime {
     Ok(())
   }
 
+  fn dump_stacktrace(scope: &mut v8::HandleScope) {
+    // TODO: more than 100
+    if let Some(trace) = v8::StackTrace::current_stack_trace(scope, 100) {
+      let frame_count = trace.get_frame_count();
+      eprintln!("got {} frame(s)", frame_count);
+      for i in 0..frame_count {
+        let frame = trace.get_frame(scope, i).unwrap();
+        let script_name = frame
+          .get_script_name_or_source_url(scope)
+          .unwrap()
+          .to_rust_string_lossy(scope);
+        eprintln!(
+          "{}: {:#?}:{}:{}",
+          i,
+          script_name,
+          frame.get_line_number(),
+          frame.get_column()
+        );
+      }
+    } else {
+      eprintln!("no stack trace");
+    }
+  }
+
   // TODO(bartlomieju): make it return `ModuleEvaluationFuture`?
   /// Evaluates an already instantiated ES module.
   ///
@@ -1463,6 +1490,45 @@ impl JsRuntime {
     &mut self,
     id: ModuleId,
   ) -> oneshot::Receiver<Result<(), Error>> {
+    let should_stop = Arc::new(AtomicBool::new(false));
+
+    let signal_handler = signal_hook::flag::register(
+      signal_hook::consts::SIGINT,
+      should_stop.clone(),
+    )
+    .unwrap();
+
+    // TODO: Look at how inspector uses request_interrupt without scope
+    extern "C" fn handle_interrupt(
+      isolate: &mut v8::Isolate,
+      scope: &mut v8::CallbackScope,
+      _data: *mut c_void,
+    ) {
+      eprintln!("handle_interrupt()");
+
+      JsRuntime::dump_stacktrace(scope);
+
+      isolate.terminate_execution();
+    }
+
+    {
+      let isolate_handle = self.v8_isolate().thread_safe_handle();
+      // SAFETY: The context only is accessed by handle_interrupt(), which runs
+      // in the main thread.
+      let context = UnsafeSend::new(self.global_context());
+
+      thread::spawn(move || loop {
+        if should_stop.load(std::sync::atomic::Ordering::SeqCst) {
+
+          let data = std::ptr::null_mut::<c_void>();
+          
+          isolate_handle.request_interrupt(handle_interrupt, data);
+          should_stop.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+        thread::sleep(std::time::Duration::from_millis(100));
+      });
+    }
+
     let state_rc = self.state.clone();
     let module_map_rc = Self::module_map(self.v8_isolate());
     let scope = &mut self.handle_scope();
@@ -1509,6 +1575,9 @@ impl JsRuntime {
     }
 
     let maybe_value = module.evaluate(tc_scope);
+
+    signal_hook::low_level::unregister(signal_handler);
+
     {
       let mut state = state_rc.borrow_mut();
       let pending_mod_evaluate = state.pending_mod_evaluate.as_mut().unwrap();

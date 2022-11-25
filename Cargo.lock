@@ -943,8 +943,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_v8",
+ "signal-hook",
  "sourcemap",
  "tokio",
+ "unsafe-send-sync",
  "url",
  "v8",
 ]
@@ -4013,6 +4015,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45bb67a18fa91266cc7807181f62f9178a6873bfad7dc788c42e6430db40184f"
 
 [[package]]
+name = "signal-hook"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a253b5e89e2698464fc26b545c9edceb338e18a89effeeecfea192c3025be29d"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5308,6 +5320,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unsafe-send-sync"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1018b747e426bb8078b687813128515800452e6c42a53c80dd0550f5d8c4483"
+
+[[package]]
 name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5363,8 +5381,6 @@ dependencies = [
 [[package]]
 name = "v8"
 version = "0.54.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b63103bd7caa4c3571e8baafe58f3e04818df70505304ed814737e655d1d8d6"
 dependencies = [
  "bitflags",
  "fslock",

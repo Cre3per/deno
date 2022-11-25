@@ -486,6 +486,7 @@ impl task::ArcWake for InspectorWaker {
           }
           extern "C" fn handle_interrupt(
             _isolate: &mut v8::Isolate,
+            _scope: &mut v8::CallbackScope,
             arg: *mut c_void,
           ) {
             // SAFETY: `InspectorWaker` is owned by `JsRuntimeInspector`, so the
